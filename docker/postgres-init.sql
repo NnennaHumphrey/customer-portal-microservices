@@ -1,0 +1,4 @@
+CREATE DATABASE auth;
+CREATE DATABASE customers;
+CREATE DATABASE billing;
+CREATE DATABASE notifications;

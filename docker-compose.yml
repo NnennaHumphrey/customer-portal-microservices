@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal
+    volumes:
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  discovery-server:
+    build:
+      context: .
+      args:
+        MODULE: discovery-server
+    image: portal/discovery-server:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    ports:
+      - "8761:8761"
+
+  api-gateway:
+    build:
+      context: .
+      args:
+        MODULE: api-gateway
+    image: portal/api-gateway:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    depends_on:
+      discovery-server:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  auth-service:
+    build:
+      context: .
+      args:
+        MODULE: auth-service
+    image: portal/auth-service:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+
+  billing-service:
+    build:
+      context: .
+      args:
+        MODULE: billing-service
+    image: portal/billing-service:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+
+  customer-service:
+    build:
+      context: .
+      args:
+        MODULE: customer-service
+    image: portal/customer-service:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: .
+      args:
+        MODULE: notification-service
+    image: portal/notification-service:latest
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-dev-only-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+
+volumes:
+  pgdata:
